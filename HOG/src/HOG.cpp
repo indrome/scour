@@ -34,7 +34,7 @@ static float* compute_HOG(uchar** img, int i, int j){
 			dx = dx/mag;
 			dy = dy/mag;
 
-			float ang = atan((dx+eps)/(dy+eps));			
+			float ang = atan((dy+eps)/(dx+eps));			
 			ang = M_PI/2.0 + ang;
 			ang = ang*(180.0/M_PI);
 
@@ -119,12 +119,19 @@ vector<float> block_normalize(float** hist_list, int cells_x, int cells_y){
 	return HOG_features;
 }
 
-void print_features( vector<float>& features){
+void print_features( vector<float>& features ){
 	for( unsigned int i = 0; i < (unsigned int)features.size(); i++){
 		// Remember: SVM_light feature indices start at 1
 		printf("%d:%f ", i+1, features[i]);
 	}
 	printf("\n");
+}
+void print_features( vector<float>& features, FILE* fp){
+	for( unsigned int i = 0; i < (unsigned int)features.size(); i++){
+		// Remember: SVM_light feature indices start at 1
+		fprintf(fp,"%d:%f ", i+1, features[i]);
+	}
+	fprintf(fp,"\n");
 }
 
 

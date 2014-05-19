@@ -1,5 +1,6 @@
 #include "HOG.hpp"
 
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
@@ -13,7 +14,8 @@ int main(int argc, char* argv[]) {
 	char* img_path = NULL;
 
 	if(argc != 6){
-		printf("usage: %s path_to_image Xmin Ymin Xmax Ymax\n",argv[0]);
+		printf("usage: PROGAM path_to_image Xmin Ymin Xmax Ymax\n");
+		exit(-1);
 	}
 	else {
 		x_min = atoi(argv[2]);	
@@ -27,45 +29,36 @@ int main(int argc, char* argv[]) {
 			printf("path_to_image is too long\n");
 			return -1;
 		}
-
 		assert(x_min < x_max);
 		assert(y_min < y_max);
-
-
 	}
 
 	// Read image and write row pointers
 	Mat img = imread(img_path, CV_LOAD_IMAGE_GRAYSCALE);
 
 	if( img.data == NULL ){
+		printf("Could not read image: %s\n", argv[1]);	
+		exit(1);
+	}
+
+	assert( x_max < img.cols );
+	assert( y_max < img.rows );
+
+	equalizeHist( img, img );
+
+	if( img.data == NULL ){
 		printf("ERROR: Image could not be read\n");
 		return -1;
 	}
 
-	int M = img.rows;
-	int N = img.cols;
+	int win_width = NUM_BLOCK_X*CELL_WIDTH;
+	int win_height = NUM_BLOCK_Y*CELL_HEIGHT; 
 
-	assert( y_max < M );
-	assert( x_max < N );
-
-	int window_width = x_max - x_min;
-	int window_height = y_max - y_min;
-
-	int cell_x = window_width/CELL_WIDTH;
-	int cell_y = window_height/CELL_HEIGHT;
-
-
-	uchar* data = img.data;
-	uchar** raw_data = (uchar**)malloc(sizeof(uchar*)*M);
-
-	for(int i = 0; i < M; i++) {
-		raw_data[i] = &data[i*N];	
-	}
-
-
-	float** hist_list = compute_cell_histogram( x_min, y_min, raw_data, window_height, window_width); 		
-	vector<float> features = block_normalize( hist_list, cell_x, cell_y );
+	float** hist_list = compute_cell_histogram( x_min, y_min, img); 		
+	vector<float> features = block_normalize( hist_list );
+	//printf("0 ");
 	print_features( features ); 
 
 	return 0;
+
 }

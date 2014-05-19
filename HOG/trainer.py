@@ -13,11 +13,15 @@ class PersonDescriptor:
 			self.img_size = img_size
 			self.BB = bounding_box 
 			self.desc = desc
+			self.scale_w =  64.0/(bounding_box[1][0]-bounding_box[0][0])
+			self.scale_h = 128.0/(bounding_box[1][1]-bounding_box[0][1])
+
 
 def process_single_sample(path,root_dir):
 	try:
-		fp = open(path,"r")
+		fp = open(path+"","r")
 	except IOError, e:
+		print "ERROR: could not open",path
 		return None
 	
 	lines = map(lambda x: x.rstrip(),  fp.readlines())
@@ -26,6 +30,8 @@ def process_single_sample(path,root_dir):
 	img_size = None 
 	BB = None
 	desc = ""
+
+	persons = []
 	
 	for line in lines:
 		if "Image filename" in line:
@@ -45,8 +51,38 @@ def process_single_sample(path,root_dir):
 		if "Original label" in line:
 			desc = line.split(":")[1].strip().rstrip()[1:-1]
 
-	return PersonDescriptor(img_path,img_size,BB,desc)
+		if img_path!=None and img_size!=None and BB!=None and desc!=None:
+			persons.append( PersonDescriptor(img_path,img_size,BB,desc) )
+			img_path = ""
+			img_size = None
+			BB = None
+			desc = ""
 
+	return persons
+
+def process_cropped(file_list, prog, root_dir, neg, verbose=False):
+	fp = open("svm_pos.txt","w")
+
+	num_samples = len(file_list)
+	num_done = 1
+
+	for path in file_list:
+		cmd = [prog,path,"0","0", "64","128"]
+		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+
+		HOG_output = proc.stdout.readlines()
+		if len(HOG_output) > 0:
+			HOG_output= HOG_output[0][:-1]
+			fp.write("+1 "+HOG_output+" # "+path+"\n")
+		else:
+			print "Failed to run",path
+			print "ERROR: ",HOG_output
+
+		print num_done,"/", num_samples 
+		num_done += 1
+	
+
+	fp.close()
 
 def process_all_training_samples(annotated_file_list, prog, root_dir, neg, verbose=False):
 	PD_list = [] 
@@ -59,27 +95,30 @@ def process_all_training_samples(annotated_file_list, prog, root_dir, neg, verbo
 		ticker = 0
 
 	for path in annotated_file_list:
-		PDo = process_single_sample(path,root_dir)
+		PDo_sublist = process_single_sample(path,root_dir)
 
-		if PDo:
-			PD_list.append(PDo)
-			cmd = map(str,[prog, PDo.img_path,PDo.BB[0][0],PDo.BB[0][1],PDo.BB[1][0],PDo.BB[1][1]])
-			proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-			
-			hist = proc.stdout.readlines()
-			if len(hist) > 0:
-				hist = hist[0][:-1]
-				fp.write("+1 "+hist+"#"+PDo.img_path+"\n")
-			else:
-				print "Failed to run",PDo.img_path
-				print "ERROR: ",hist
+		if PDo_sublist:
+			for PDo in PDo_sublist:
+				if PDo:
+					PD_list.append(PDo)
+					cmd = map(str,[prog, PDo.img_path,PDo.BB[0][0],PDo.BB[0][1],PDo.BB[1][0],PDo.BB[1][1]])
+					print cmd
+					proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+					
+					hist = proc.stdout.readlines()
+					if len(hist) > 0:
+						hist = hist[0][:-1]
+						fp.write("+1 "+hist+"#"+PDo.img_path+"\n")
+					else:
+						print "Failed to run",PDo.img_path
+						print "ERROR: ",hist
 
-			if verbose:
-				ticker += 1
-				if ticker > 10:
-					print "Processing speed: ",(time.time()-t1)/ticker," samples / sec"
-					ticker = 0
-					t1 = time.time()
+					if verbose:
+						ticker += 1
+						if ticker > 10:
+							print "Processing speed: ",(time.time()-t1)/ticker," samples / sec"
+							ticker = 0
+							t1 = time.time()
 
 			
 
@@ -98,20 +137,32 @@ def train_negative(image_path, prog):
 
 	fp = open("svm_neg.txt","w+")
 
+	train_width = 64 
+	train_height = 128 
+
+	counter = 1 
+
 	for neg_img in neg_image_path:
 		img = cv2.imread(neg_img)
 
 		height, width, depth = img.shape
 
-		start_x = random.randint(1,width-65)
-		start_y = random.randint(1,height-129)
+		if width-train_width-1 > 0 and height - train_height-1> 0:
+			for x in range(0,8):
+				start_x = random.randint(1,width-train_width-1)
+				start_y = random.randint(1,height-train_height-1)
 
-		cmd = map(str,[prog, neg_img, start_x, start_y, start_x+64, start_y+128])
-		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
-		hist = proc.stdout.readlines()
+				cmd = map(str,[prog, neg_img, start_x, start_y, start_x+train_width, start_y+train_height])
+				proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+				hist = proc.stdout.readlines()
 
-		hist = hist[0].strip().rstrip()[1:-1]
-		fp.write("-1 "+hist+"# "+neg_img+"\n")
+				if len(hist) > 0:
+					hist = hist[0].strip().rstrip()[1:-1]
+					fp.write("-1 "+hist+" # "+neg_img+"\n")
+				else:
+					"Print failed to read:",neg_img
+		print counter,"/",len(neg_image_path)
+		counter += 1	
 
 	fp.close()
 
@@ -142,7 +193,8 @@ if __name__ == "__main__":
 		if args.verbose:
 			print "Loaded: ",len(annotated_file_list)," files"
 
-		PD_list = process_all_training_samples(annotated_file_list, args.program, args.root_dir, args.neg, args.verbose)
+		process_cropped(annotated_file_list, args.program, args.root_dir, args.neg, args.verbose)
+		#PD_list = process_all_training_samples(annotated_file_list, args.program, args.root_dir, args.neg, args.verbose)
 
 		if args.verbose :
 			print "Parsing DONE ( %d / %d ) successfully parsed" % (len(PD_list), len(annotated_file_list))

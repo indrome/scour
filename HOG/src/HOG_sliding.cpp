@@ -43,38 +43,40 @@ int main(int argc, char* argv[]) {
 
 	char* img_path = NULL;
 
-	if(argc != 3){
-		printf("usage: %s path_to_image path_to_model\n",argv[0]);
-	}
-	else {
+	//if(argc != 3){
+	//	printf("usage: %s path_to_image path_to_model\n",argv[0]);
+	//}
+	//else {
 
-		if(strnlen(argv[1],255) < 255)
+		if(strnlen(argv[1],255) < 255) {
 			img_path = argv[1];
+		}
 		else {
 			printf("path_to_image is too long\n");
 			return -1;
 		}
-	}
 
-	if((model=svm_load_model(argv[2]))==0){
-		fprintf(stderr,"can't open model file %s\n",argv[2]);
-		exit(1);
-	}
+	//}
+
+	//if((model=svm_load_model(argv[2]))==0){
+	//	fprintf(stderr,"can't open model file %s\n",argv[2]);
+	//	exit(1);
+	//}
 
 	// Read image and write row pointers
 	Mat img = imread(img_path, CV_LOAD_IMAGE_GRAYSCALE);
 
 	equalizeHist( img, img );
 
-	Mat img_tq;
-	Mat img_t;
-	Mat img_h;
-	Mat img_q;
-	resize(img, img_tq, Size(), 0.75, 0.75);
-	resize(img, img_h, Size(), 0.5, 0.5);
-	resize(img, img_t, Size(), 0.3, 0.3);
-	resize(img, img_q, Size(), 0.25, 0.25);
-	img = img_tq;
+	//Mat img_tq;
+	//Mat img_t;
+	//Mat img_h;
+	//Mat img_q;
+	//resize(img, img_tq, Size(), 0.75, 0.75);
+	//resize(img, img_h, Size(), 0.5, 0.5);
+	//resize(img, img_t, Size(), 0.3, 0.3);
+	//resize(img, img_q, Size(), 0.25, 0.25);
+	//img = img_h;
 
 	if( img.data == NULL ){
 		printf("ERROR: Image could not be read\n");
@@ -103,8 +105,8 @@ int main(int argc, char* argv[]) {
 
 	vector<float> features;
 
-	const char* cmd = "~/src/libsvm/svm-scale -l 0 -u 1 -s range test.txt > test.txt.scale";
-	FILE* fp = fopen("test.txt","w");
+	//const char* cmd = "~/src/libsvm/svm-scale -l 0 -u 1 -s range test.txt > test.txt.scale";
+	FILE* fp = fopen("sliding_output.txt","w");
 
 	int coord[((N-win_width-1)/gap_x+1)* ((M-win_height-1)/gap_y+1)][2];
 	int index = 0;
@@ -117,18 +119,20 @@ int main(int argc, char* argv[]) {
 			assert(i+win_height < M );
 			float** hist_list = compute_cell_histogram( j, i, img ); 		
 			features = block_normalize( hist_list );
-			float result = predict(features);
+			//float result = predict(features);
 
-			if( result >= 1.0 )
-			{
-				printf("========================================\n");
-				printf("Person detected in: %d %d %f\n",i,j,result);
-				printf("========================================\n");
-			}
-			else {
-				cout << "Reuslt " << i << " "<< j << ": " << result << endl;
-			}
+			//if( result >= 1.0 )
+			//{
+			//	printf("========================================\n");
+			//	printf("Person detected in: %d %d %f\n",i,j,result);
+			//	printf("========================================\n");
+			//}
+			//else {
+			//	cout << "Reuslt " << i << " "<< j << ": " << result << endl;
+			//}
 			//fprintf(fp,"0 ");
+			//print_features( features, fp); 
+			fprintf(fp,"0 ");
 			print_features( features, fp); 
 	
 			coord[index][0] = j;
@@ -137,36 +141,38 @@ int main(int argc, char* argv[]) {
 
 		}
 	}
+	printf("index: %d\n",index);
 
 	fclose(fp);
-	//system(cmd);
+// /*
+	system("svm_classify -v 3 sliding_output.txt svm_model.txt svm_output.txt");
 	
-	//FILE* fp_out = fopen("svm_output.txt","r");
-	//float score = 0.0;
+	FILE* fp_out = fopen("svm_output.txt","r");
+	float score = 0.0;
 
-	//index = 0;	
+	index = 0;	
 
-	//namedWindow("HOG", WINDOW_AUTOSIZE );
-	//cvtColor( img, img, CV_GRAY2BGR );
+	namedWindow("HOG", WINDOW_AUTOSIZE );
+	cvtColor( img, img, CV_GRAY2BGR );
 
-	//while( fscanf(fp_out,"%f\n", &score) > 0){
-	//	if( score >= 1.0 ){
-	//		int xmin = coord[index][0];
-	//		int ymin = coord[index][1];
-	//		int xmax = xmin+win_width;
-	//		int ymax = ymin+win_height;
-	//		printf("%f %d %d %d %d\n",score, xmin, ymin, xmax, ymax );
-	//		rectangle( img, cvPoint(xmin,ymin), cvPoint(xmax,ymax), CV_RGB(255,0,0),1,8);
+	while( fscanf(fp_out,"%f\n", &score) > 0){
+		if( score > 0.0 ){
+			int xmin = coord[index][0];
+			int ymin = coord[index][1];
+			int xmax = xmin+win_width;
+			int ymax = ymin+win_height;
+			printf("%f %d %d %d %d\n",score, xmin, ymin, xmax, ymax );
+			rectangle( img, cvPoint(xmin,ymin), cvPoint(xmax,ymax), CV_RGB(255,0,0),1,8);
 
-	//	}
-	//	index++;
-	//}
-//
-//	fclose(fp);
-//
-//
-//	imshow("HOG", img);
-//	waitKey(0);
+		}
+		index++;
+	}
 
+	fclose(fp);
+
+
+	imshow("HOG", img);
+	waitKey(0);
+ //*/
 	return 0;
 }

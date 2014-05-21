@@ -26,4 +26,12 @@ Perform automated SVM training:
 
 ``` python2 wrapper.py path_to_annotations ```
 
+Note
+====
+
+The INRIA person dataset images are not backwards compatible with some png-libraries. 
+To tix problems reading these images one can use '''optipng''' to fix the files.
+For example:
+
+``` optipng --fix --force --quiet IMG_1.png IMG_2.png ... ```
 

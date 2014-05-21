@@ -16,12 +16,11 @@ using namespace cv;
 
 static inline uchar index( int i, int j, int stride){ return i*stride+j; }
 
-static float* compute_HOG(Mat img, int i, int j){
+static float* compute_HOG(Mat img, int y, int x){
 
-	uchar* img_data = img.data;
+	//uchar* img_data = img.data;
 
-
-	float div = 180.0/9.0;
+	float div = M_PI/9.0;
 	float* histogram = (float*) malloc(sizeof(float)*(NUM_HIST_BIN+1));	
 	if( histogram == NULL ){
 		printf("ERROR: Unable to allocate cell histogram\n");
@@ -29,45 +28,33 @@ static float* compute_HOG(Mat img, int i, int j){
 	}
 	memset(histogram,0,sizeof(float)*(NUM_HIST_BIN+1));
 
-	for( int k = i; k < i+CELL_HEIGHT; k++){
-		for( int l = j; l < j+CELL_WIDTH; l++){
+	for( int k = y; k < y+CELL_HEIGHT; k++){
+		for( int l = x; l < x+CELL_WIDTH; l++){
 
 			float dx = 0.0; float dy = 0.0;
 
-			// Treat boundaries as the mask [-1,1] instead of [-1,0,1] and vice versa 
-			if(k==0){
-				dy = (float)( -img_data[ index(k,l,img.cols) ] +img_data[ index(k+1,l,img.cols) ]);
-			}
-			else if(k == img.rows){
-				dy = (float)( -img_data[ index(k-1,l,img.cols) ] +img_data[ index(k,l,img.cols) ]);
-			}
-			else{
-				dy = (float)( -img_data[ index(k-1,l,img.cols) ] +img_data[ index(k+1,l,img.cols) ]);
-			}
+			Vec3b dy_BGR_up = img.at<Vec3b>(k+1,l);
+			Vec3b dy_BGR_down = img.at<Vec3b>(k-1,l);
 
-			// Treat boundaries as the mask [-1,1] instead of [-1,0,1] and vice versa 
-			if(l==0){
-				dx = (float)( -img_data[ index(k,l,img.cols ) ]+img_data[ index(k,l+1,img.cols) ]);
-			}
-			else if(l == img.cols ){
-				dx = (float)( -img_data[ index(k,l-1,img.cols ) ]+img_data[ index(k,l,img.cols) ]);
-			}
-			else {
-				dx = (float)( -img_data[ index(k,l-1,img.cols ) ]+img_data[ index(k,l+1,img.cols) ]);
-			}
+			Vec3b dx_BGR_left = img.at<Vec3b>(k,l-1);
+			Vec3b dx_BGR_right = img.at<Vec3b>(k,l+1);
 
-			float mag = sqrtf( dx*dx + dy*dy + eps );
+			// TODO: check that the mast is correct
 
-			dx = dx/mag;
-			dy = dy/mag;
+			dy = dy_BGR_up[0]-dy_BGR_down[0];
+			dy = (dy < dy_BGR_up[1]-dy_BGR_down[1]) ? dy_BGR_up[1]-dy_BGR_down[1] : dy;
+			dy = (dy < dy_BGR_up[2]-dy_BGR_down[2]) ? dy_BGR_up[2]-dy_BGR_down[2] : dy;
 
-			float ang = atan((dy+eps)/(dx+eps));			
-			ang = M_PI/2.0 + ang;
-			ang = ang*(180.0/M_PI);
+			dx = dx_BGR_left[0]-dx_BGR_right[0];
+			dx = (dx < dx_BGR_left[1]-dx_BGR_right[1]) ? dx_BGR_left[1]-dx_BGR_right[1] : dx;
+			dx = (dx < dx_BGR_left[2]-dx_BGR_right[2]) ? dx_BGR_left[2]-dx_BGR_right[2] : dx;
 
-			int bin = (int)(ang/div);
+			dy += eps;
+			dx += eps;
 
-			assert(bin < NUM_HIST_BIN);
+			float mag = sqrtf( dx*dx + dy*dy );
+			float ang = fabs(atan(dy/dx) + M_PI/2.0);			
+			int bin = (int)floorf(ang/div);
 			 
 			histogram[bin] += mag;
 

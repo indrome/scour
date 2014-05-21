@@ -34,7 +34,8 @@ int main(int argc, char* argv[]) {
 	}
 
 	// Read image and write row pointers
-	Mat img = imread(img_path, CV_LOAD_IMAGE_GRAYSCALE);
+	//Mat img = imread(img_path, CV_LOAD_IMAGE_GRAYSCALE);
+	Mat img = imread(img_path);
 
 	if( img.data == NULL ){
 		printf("Could not read image: %s\n", argv[1]);	
@@ -44,7 +45,7 @@ int main(int argc, char* argv[]) {
 	assert( x_max < img.cols );
 	assert( y_max < img.rows );
 
-	equalizeHist( img, img );
+	//equalizeHist( img, img );
 
 	if( img.data == NULL ){
 		printf("ERROR: Image could not be read\n");
@@ -56,7 +57,7 @@ int main(int argc, char* argv[]) {
 
 	float** hist_list = compute_cell_histogram( x_min, y_min, img); 		
 	vector<float> features = block_normalize( hist_list );
-	//printf("0 ");
+	printf("0 ");
 	print_features( features ); 
 
 	return 0;

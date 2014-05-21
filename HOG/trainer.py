@@ -67,7 +67,7 @@ def process_cropped(file_list, prog, root_dir, neg, verbose=False):
 	num_done = 1
 
 	for path in file_list:
-		cmd = [prog,path,"0","0", "64","128"]
+		cmd = [prog,path,"13","31", "77","159"]
 		proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
 		HOG_output = proc.stdout.readlines()

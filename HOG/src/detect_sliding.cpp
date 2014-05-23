@@ -7,37 +7,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "svm.h"
-
 #define DEBUG
 
 using namespace std;
 using namespace cv;
 
-static struct svm_model* model;
-
-float predict( vector<float>& features ){
-	
-	double predicted_label;
-	struct svm_node* x = (struct svm_node*)malloc(sizeof(struct svm_node)*features.size()+1);
-
-	if(!x){
-		fprintf(stderr, "Unable to allocate memory for SVM nodes\n");
-		exit(1);
-	}
-
-	int i;
-	for( i = 0; i < (int)features.size(); i++ ){
-		x[i].value = features[i];
-		x[i].index = i+1;
-	}
-	x[i].index = -1;
-
-	predicted_label = svm_predict(model,x);
-	
-	return predicted_label;
-
-}
 
 int main(int argc, char* argv[]) {
 

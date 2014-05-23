@@ -12,9 +12,10 @@ int main(int argc, char* argv[]) {
 
 	int x_min, y_min, x_max, y_max;
 	char* img_path = NULL;
+	char* prefix = NULL;
 
-	if(argc != 6){
-		printf("usage: PROGAM path_to_image Xmin Ymin Xmax Ymax\n");
+	if(argc != 7){
+		printf("usage: PROGAM path_to_image Xmin Ymin Xmax Ymax PREFIX\n");
 		exit(-1);
 	}
 	else {
@@ -24,11 +25,19 @@ int main(int argc, char* argv[]) {
 		y_max = atoi(argv[5]);	
 
 		if(strnlen(argv[1],255) < 255)
-			img_path = argv[1];
+			img_path = argv[1];		
 		else {
 			printf("path_to_image is too long\n");
 			return -1;
 		}
+		if(strnlen(argv[6],3) < 3){
+			prefix = argv[6];
+		}
+		else{
+			printf("Prefix is too long\n");
+			return -1;
+		}
+			
 		assert(x_min < x_max);
 		assert(y_min < y_max);
 	}
@@ -57,7 +66,7 @@ int main(int argc, char* argv[]) {
 
 	float** hist_list = compute_cell_histogram( x_min, y_min, img); 		
 	vector<float> features = block_normalize( hist_list );
-	printf("0 ");
+	printf("%s ",prefix);
 	print_features( features ); 
 
 	return 0;

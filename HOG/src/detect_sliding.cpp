@@ -64,87 +64,86 @@ int main(int argc, char* argv[]) {
 	//}
 
 	// Read image and write row pointers
-	Mat img = imread(img_path, CV_LOAD_IMAGE_GRAYSCALE);
+	//Mat img = imread(img_path, CV_LOAD_IMAGE_GRAYSCALE);
+	Mat img = imread(img_path);
 
-	equalizeHist( img, img );
+	int num_levels = 6.0;
+	vector<Mat> multi_scale_images(num_levels); multi_scale_images[0] = img;
+	vector<float> scales(num_levels); scales[0] = 1.0;
+	float delta_s = (1.0-0.4)/(float)num_levels;
 
-	//Mat img_tq;
-	//Mat img_t;
-	//Mat img_h;
-	//Mat img_q;
-	//resize(img, img_tq, Size(), 0.75, 0.75);
-	//resize(img, img_h, Size(), 0.5, 0.5);
-	//resize(img, img_t, Size(), 0.3, 0.3);
-	//resize(img, img_q, Size(), 0.25, 0.25);
-	//img = img_h;
+
+	for(int i = 1; i < num_levels; i++){
+		scales[i] = scales[i-1]-delta_s;	
+		resize( multi_scale_images[i-1], multi_scale_images[i], Size(), scales[i],scales[i]);
+	}
+
 
 	if( img.data == NULL ){
 		printf("ERROR: Image could not be read\n");
 		return -1;
 	}
 
-	int M = img.rows;
-	int N = img.cols;
 
-	//int gap_x = 32;
-	//int gap_y= 64;
-	int gap_x = 8;
-	int gap_y= 8;
+
+	int gap_x = 16;
+	int gap_y= 32;
+	//int gap_x = 8;
+	//int gap_y= 8;
 
 
 	int win_width = NUM_BLOCK_X*CELL_WIDTH; 
 	int win_height = NUM_BLOCK_Y*CELL_HEIGHT;
-
-
-	uchar* data = img.data;
-	uchar** raw_data = (uchar**)malloc(sizeof(uchar*)*M);
-
-	for(int i = 0; i < M; i++) {
-		raw_data[i] = &data[i*N];	
-	}
 
 	vector<float> features;
 
 	//const char* cmd = "~/src/libsvm/svm-scale -l 0 -u 1 -s range test.txt > test.txt.scale";
 	FILE* fp = fopen("sliding_output.txt","w");
 
-	int coord[((N-win_width-1)/gap_x+1)* ((M-win_height-1)/gap_y+1)][2];
+	int M = multi_scale_images[0].rows;
+	int N = multi_scale_images[0].cols;
+	vector<int> px;
+	vector<int> py;
+	vector<float> scale_list;
 	int index = 0;
 
-	for( int i = 1; i < M-win_height-1; i += gap_y ){
-		for( int j = 1; j < N-win_width-1; j += gap_x ){
+	for(int loop = 0; loop < multi_scale_images.size(); loop++ ){
+
+		img = multi_scale_images[loop];
+		M = img.rows;
+		N = img.cols;
+		
+
+		printf("Processing image at scale: %0.3f %d %d\n",scales[loop],M,N);
+		
+		for( int i = 1; i < M-win_height-1; i += gap_y ){
+			for( int j = 1; j < N-win_width-1; j += gap_x ){
 
 
-			assert(j+win_width < N );
-			assert(i+win_height < M );
-			float** hist_list = compute_cell_histogram( j, i, img ); 		
-			features = block_normalize( hist_list );
-			//float result = predict(features);
+				float** hist_list = compute_cell_histogram( j, i, img ); 		
+				features = block_normalize( hist_list );
 
-			//if( result >= 1.0 )
-			//{
-			//	printf("========================================\n");
-			//	printf("Person detected in: %d %d %f\n",i,j,result);
-			//	printf("========================================\n");
-			//}
-			//else {
-			//	cout << "Reuslt " << i << " "<< j << ": " << result << endl;
-			//}
-			//fprintf(fp,"0 ");
-			//print_features( features, fp); 
-			fprintf(fp,"0 ");
-			print_features( features, fp); 
+				fprintf(fp,"0 ");
+				print_features( features, fp); 
 	
-			coord[index][0] = j;
-			coord[index][1] = i;
-			index++;
+				px.push_back( j*(1.0/scales[loop]) );
+				py.push_back( i*(1.0/scales[loop]) );
+				scale_list.push_back( 1.0/scales[loop] );
 
+				index++;
+
+			}
 		}
 	}
 	printf("index: %d\n",index);
 
 	fclose(fp);
 // /*
+
+	img = multi_scale_images[0];
+	N = img.rows;
+	M = img.cols;
+
 	system("svm_classify -v 3 sliding_output.txt svm_model.txt svm_output.txt");
 	
 	FILE* fp_out = fopen("svm_output.txt","r");
@@ -153,16 +152,16 @@ int main(int argc, char* argv[]) {
 	index = 0;	
 
 	namedWindow("HOG", WINDOW_AUTOSIZE );
-	cvtColor( img, img, CV_GRAY2BGR );
-
+	//cvtColor( img, img, CV_GRAY2BGR );
+	
 	while( fscanf(fp_out,"%f\n", &score) > 0){
 		if( score > 0.0 ){
-			int xmin = coord[index][0];
-			int ymin = coord[index][1];
-			int xmax = xmin+win_width;
-			int ymax = ymin+win_height;
-			printf("%f %d %d %d %d\n",score, xmin, ymin, xmax, ymax );
-			rectangle( img, cvPoint(xmin,ymin), cvPoint(xmax,ymax), CV_RGB(255,0,0),1,8);
+			int xmin = px[index]; 
+			int ymin = py[index];
+			int xmax = xmin+win_width*scale_list[index];
+			int ymax = ymin+win_height*scale_list[index];
+			printf("%f %d %d %d %d: %f\n",score, xmin, ymin, xmax, ymax, scale_list[index] );
+			rectangle( img, cvPoint(xmin,ymin), cvPoint(xmax,ymax), CV_RGB(1.0/scale_list[index]*255,0,0),1,8);
 
 		}
 		index++;

@@ -112,7 +112,6 @@ void get_block_vector( vector<float>& features, float** hist_list, int i, int j 
 		features.push_back( hist_list[(i+1)*NUM_BLOCK_X+j+1][k] );	
 		sum_of_squares += features.back()*features.back();
 	}
-
 	for( unsigned int k = features.size()-9*4; k < (unsigned int)features.size(); k++) {
 		features[k] = features[k]*1.0/sqrtf(sum_of_squares+eps*eps);
 	}
@@ -132,14 +131,14 @@ vector<float> block_normalize(float** hist_list){
 }
 
 void print_features( vector<float>& features ){
-	for( unsigned int i = 0; i < (unsigned int)features.size(); i++){
+	for( unsigned int i = 0; i < (unsigned int)features.size()-1; i++){
 		// Remember: SVM_light feature indices start at 1
 		printf("%d:%f ", i+1, features[i]);
 	}
 	printf("\n");
 }
 void print_features( vector<float>& features, FILE* fp){
-	for( unsigned int i = 0; i < (unsigned int)features.size(); i++){
+	for( unsigned int i = 0; i < (unsigned int)features.size()-1; i++){ // there are 9 features and 1 sum
 		// Remember: SVM_light feature indices start at 1
 		fprintf(fp,"%d:%f ", i+1, features[i]);
 	}
